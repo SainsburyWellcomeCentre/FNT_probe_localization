@@ -35,11 +35,15 @@ This is a pipeline to plot maps of just that in the recordings for the flexivexi
 ### Running the pipeline
 Because it uses `spikeinterface`, it should run fine with the environment used for ephys processing. 
 
-It is usually run as a batch job, because it takes a long time, from `probe_location.batch`. Please, edit the email address and switch it to your own.  
+It is usually run as a batch job, because it takes a long time, from `probe_location.batch`. Please, edit the email address and switch it to your own. You  should also change the path to the `main_probe_location.py` script 
 
 Parameters shold be edited in `main_probe_location.py`. It accepts a list of mouse names. You can calculate all the delta powers, annd choose between re-calculating them all from scratch (if you made any changes) or skipping the ones that are already made. You can also only use the pipeline to produce whole-probe maps. 
 
-As of now, we use the multitaper method to calculate the power spectrum over a snippet of 10s of probe. This is not what the IBL does: they seem to break the signal into nonoverlapping 3'' windows, high-pass filter them below 1 Hz, calculuate the Welch power spectrum and add all of the windows together to get an estimate of the total energy spectrum of the signal. This is weird, as Megan Lockwood and I expected them to normalise the power spectrum, to obtain a measure that is invariable over time. 
+You can choose to use the welch method to calculate the fourier transform. It will take a 40'' chunk of recording between seconds 5 and 45, break it into four windows, compute the spectrogram and average it. 
+
+You can also use the multitaper method to calculate the power spectrum over a snippet of 10s of probe. This is significantly slower. 
+
+This is not what the IBL does: they seem to break the signal into nonoverlapping 3'' windows, high-pass filter them below 1 Hz, calculuate the Welch power spectrum and add all of the windows together to get an estimate of the total energy spectrum of the signal. This is weird, as Megan Lockwood and I expected them to normalise the power spectrum, to obtain a measure that is invariable over time. 
 
 [This is how they calculate the energy spectrum](https://github.com/int-brain-lab/ibllib/blob/master/ibllib/ephys/ephysqc.py)  
 

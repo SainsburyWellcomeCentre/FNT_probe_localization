@@ -11,6 +11,8 @@ import  multitaper
 from tqdm import tqdm
 import pandas as pd
 import os
+from scipy import signal
+
 
 INPUT = Path('/ceph/sjones/projects/FlexiVexi/raw_data/')
 OUTPUT = Path('/ceph/sjones/projects/FlexiVexi/data_analysis/probe_location/')
@@ -23,6 +25,25 @@ def get_record_node_path(root_folder):
             return dirpath
     return None
 
+def fscale(ns, si=1, one_sided=False):
+    """
+    Stole this code from the IBL
+
+    [https://github.com/int-brain-lab/ibl-neuropixel/blob/main/src/ibldsp/fourier.py]
+
+    numpy.fft.fftfreq returns Nyquist as a negative frequency so we propose this instead
+
+    :param ns: number of samples
+    :param si: sampling interval in seconds
+    :param one_sided: if True, returns only positive frequencies
+    :return: fscale: numpy vector containing frequencies in Hertz
+    """
+    fsc = np.arange(0, np.floor(ns / 2) + 1) / ns / si  # sample the frequency scale
+    if one_sided:
+        return fsc
+    else:
+        return np.concatenate((fsc, -fsc[slice(-2 + (ns % 2), 0, -1)]), axis=0)
+    
 class probe_mapper():
 
     '''
@@ -31,11 +52,13 @@ class probe_mapper():
      or four shanks. 
     '''
 
-    def __init__(self, mouse, session, mode = 'four_shanks'):
+    def __init__(self, mouse, session, mode = 'four_shanks', fourier_mode = 'welch'):
 
         self.mouse = mouse
         self.session  = session
         self.mode = mode
+        self.low_band = 1
+        self.fourier_mode = fourier_mode
 
         root_path = INPUT  / self.mouse / self.session
 
@@ -68,16 +91,58 @@ class probe_mapper():
 
             self.probe1 = recording
 
-        #Keep 10s of data
         self.samp = self.probe1.sampling_frequency
         print(f'Sampling freq is {self.samp}Hz')
-        print('Extracting 10s')
-        self.traces =  (self.probe1.get_traces(start_frame=5*self.samp, end_frame=15*self.samp)).T
 
-        nChans, nSamps = self.traces.shape
-        print('Data has %d channels and %d samples',(nChans,nSamps))
+        print(f'Filtering {self.low_band}Hz - {(self.samp/2)-1}Hz')
+        self.probe1 = si.bandpass_filter(recording=self.probe1, freq_min=self.low_band, freq_max=(self.samp/2)-1)
 
-    def fourier(self, mode = 'multitaper'):
+        if self.fourier_mode == 'multitaper':
+            #Keep 10s of data
+            print('Extracting 10s')
+            self.traces =  (self.probe1.get_traces(start_frame=5*self.samp, end_frame=15*self.samp)).T
+
+        elif self.fourier_mode == 'welch':
+            #Keep 10s of data
+            print('Extracting 10s')
+            self.traces =  (self.probe1.get_traces(start_frame=5*self.samp, end_frame=15*self.samp)).T
+
+        self.nChans, self.nSamps = self.traces.shape
+        print('Data has %d channels and %d samples',(self.nChans,self.nSamps))
+
+    def plot_10s_traces(self):
+
+        print('Plotting traces')
+
+        rec1 = si.bandpass_filter(recording=self.probe1, freq_min=300, freq_max=6000)
+        rec = si.common_reference(rec1, operator="median", reference="global")
+
+        # Plot with spikeinterface or sw.plot_traces
+        w_ts = sw.plot_traces(rec, mode="map", time_range=(5, 15), show_channel_ids=True, order_channel_by_depth=True)
+
+        # If w_ts is an Axes object, this will get the parent figure
+        fig = w_ts.figure
+        ax = w_ts.ax
+
+        # Set the figure size (width, height)
+        fig.set_size_inches(10, 15)
+
+        # Get the current y-ticks
+        yticks = ax.get_yticks()
+
+        ax.set_xlabel('time (s)')
+
+        # Set the y-ticks to show only every 10th channel
+        new_yticks = yticks[::10]
+        ax.set_yticks(new_yticks)
+
+        fig.suptitle('10s of bandpassed (300-6k Hz), CMR recording')
+
+        fig.savefig(self.output_path / 'traces.png')
+
+        plt.close()
+
+    def fourier(self):
         '''
         Calculates the Fourier transform of the first channel. Can use multitaper
         (precise w small sample sizes, but slow), or fft (fast, maybe  imprecise in
@@ -87,7 +152,7 @@ class probe_mapper():
             pxx: power spectrum in V**2
             f: frequencies of pxx in Hz
         '''
-        if  mode  == 'multitaper':
+        if  self.fourier_mode  == 'multitaper':
 
             psd = multitaper.MTSpec(x=self.traces[0,:]/10E6, dt=1.0/self.samp, nw=5) # run the multitaper spectrum
             self.pxx, self.f = psd.spec, psd.freq # unpack power spectrum and frequency from output
@@ -105,12 +170,15 @@ class probe_mapper():
             fig.suptitle('Multitaper spectrum of first channel')
             fig.savefig(self.output_path / 'spectrum.png')
 
-    def probe_spectrum(self, mode = 'multitaper'):
+            plt.close()
+
+
+    def probe_spectrum(self):
 
         self.pxx_list = list(np.zeros(len(self.probe1.channel_ids)))
         self.f_list = list(np.zeros(len(self.probe1.channel_ids)))
 
-        if mode ==  'multitaper':
+        if self.fourier_mode ==  'multitaper':
 
             for i in tqdm(np.arange(len(self.pxx_list))):
                 print (i)
@@ -127,12 +195,59 @@ class probe_mapper():
 
             self.freq =  pd.DataFrame(freq_per_channel)
 
+        if self.fourier_mode == 'welch':
+
+            windows = self.make_windows(4)
+
+            self.f_list = [fscale(self.window_samples, 1/self.samp, one_sided=True) for _ in range(self.nChans)]
+
+            spectra = np.zeros((self.nChans, len(self.f_list[0])))
+
+            for window in tqdm(np.arange(4)):
+                start, end = int(windows[window, 0]), int(windows[window, 1])
+                trace = self.traces[:, start:end]
+                _, w = signal.welch(
+                trace/10E6, fs=self.samp, window='hann', nperseg=self.window_samples,
+                detrend='constant', return_onesided=True, scaling='density', axis=-1
+                )
+
+                spectra += w
+
+            spectrum = spectra/4
+
+            self.pxx_list = spectrum.tolist()
+
+            freq_per_channel = {
+                'channel': np.arange(len(self.probe1.channel_ids)), 
+                'pxx': self.pxx_list,
+                'f': self.f_list
+            }
+
+            self.freq =  pd.DataFrame(freq_per_channel)
+
+    def make_windows(self, n_windows = 4):  
+        self.window_samples = self.nSamps//n_windows
+        print(f'Window samples are {self.window_samples} samples')
+        windows = np.zeros((n_windows, 2))
+        index = 0
+        for window in np.arange(n_windows):
+            windows[index, 0] = index*self.window_samples
+            windows[index, 1] = index*self.window_samples + self.window_samples
+            index +=1
+
+        return windows
+    
+
     def get_delta_power(self, pxx, f):
 
         '''
         Extracts the power in the delta band and transforms it into
         decibels. 
         '''
+        # Convert the frequency list to a numpy array so you can use comparisons
+
+        f = np.array(f)
+        pxx = np.array(pxx)
 
         # Define the frequency range of interest (0-4 Hz)
         band_range = (f >= 0) & (f <= 4)
@@ -146,6 +261,8 @@ class probe_mapper():
         return power_db
     
     def calculate_delta_power(self):
+
+        # ISSUE WITH THE SAPE OF FREQ: SHOULD BE CONSISTENT; A LIST OF SPECTRA
 
         self.freq['delta_power'] =  [self.get_delta_power(pxx, f) for pxx,f in zip(self.pxx_list, self.f_list)]
         self.freq.to_csv(self.output_path / 'freq.csv')
@@ -188,6 +305,8 @@ class probe_mapper():
         #save
         fig.savefig(self.output_path / 'delta_map.png')
         self.probemap.to_csv(self.output_path / 'probemap.csv')
+
+        plt.close()
 
 class  whole_probe():
 
@@ -256,49 +375,62 @@ class  whole_probe():
             print(f"{probemap_path} does not exist.")
 
     def process_probemap(self):
-        '''
-        Deals with  duplicate entries for a  single  point  (more than two
-        sessions on the  same bank) by keeping the average value for  dbs
-        on that point in space.  )
-        '''
-        self.processed_probemap = self.probemap.groupby(['x', 'y'], as_index=False)['dbs'].mean()
-        self.processed_probemap.to_csv(self.output_path / 'processed_probemap.csv')
+            '''
+            Deals with  duplicate entries for a  single  point  (more than two
+            sessions on the  same bank) by keeping the average value for  dbs
+            on that point in space.  )
+            '''
+            self.processed_probemap = self.probemap.groupby(['x', 'y', 'contact_ids'], as_index=False)['dbs'].mean()
+            self.processed_probemap.to_csv(self.output_path / 'processed_probemap.csv')
 
-        
-    def plot_probemap(self, combine = 'processed'):
-
+            
+    def plot_probemap(self, combine='processed'):
         '''
-        Combine stands for wether all the datapoints are plotted, or
-        datapoints of the same channel are averaged across sessions
+        Combine stands for whether all the datapoints are plotted, or
+        datapoints of the same channel are averaged across sessions.
         '''
 
         fig, ax = plt.subplots()
 
-        # Create a scatter plot
-        if combine  == 'raw':
-            sc = ax.scatter(self.probemap['x'], self.probemap['y'], c=self.probemap['dbs'], cmap='viridis', s=50)
-        elif combine  == 'processed':
-            sc = ax.scatter(self.processed_probemap['x'], self.processed_probemap['y'], c=self.processed_probemap['dbs'], cmap='viridis', s=50)
+        fig.set_figheight(30)
+        fig.set_figwidth(10)
 
-        # Add color bar for the 'dfs' values (make sure to pass the scatter plot object `sc`)
+        # Create a scatter plot
+        if combine == 'raw':
+            sc = ax.scatter(self.probemap['x'], self.probemap['y'], c=self.probemap['dbs'], cmap='viridis', s=50)
+            # Add contact IDs for 'raw'
+            for i in range(len(self.probemap)):
+                ax.annotate(self.probemap['contact_ids'].iloc[i], (self.probemap['x'].iloc[i], self.probemap['y'].iloc[i]),
+                            fontsize=6, color='black', ha='center', va='center')
+
+        elif combine == 'processed':
+            sc = ax.scatter(self.processed_probemap['x'], self.processed_probemap['y'], c=self.processed_probemap['dbs'], cmap='viridis', s=50)
+            # Add contact IDs for 'processed'
+            for i in range(len(self.processed_probemap)):
+                ax.annotate(self.processed_probemap['contact_ids'].iloc[i], 
+                            (self.processed_probemap['x'].iloc[i]+60, self.processed_probemap['y'].iloc[i]),
+                            fontsize=6, color='black', ha='center', va='center')
+
+        # Add color bar for the 'dfs' values
         cbar = plt.colorbar(sc, ax=ax)
         cbar.set_label('Delta power (power in Db from 0 to 4 Hz in a signal in V)')
 
-        if self.mode == 'one_shank':
+        # Set y-ticks to have more values
+        all_y_ticks = np.linspace(self.probemap['y'].min(), self.probemap['y'].max(), num=50)  # Adjust num for more/less ticks
+        ax.set_yticks(all_y_ticks)
 
+        if self.mode == 'one_shank':
             # Set x-axis limits
             ax.set_xlim((100, 450))
             ax.set_ylabel('depth (microns)')
-
+            ax.set_xlabel('microns')
             fig.suptitle('Map of the shank 1 and delta power')
 
         elif self.mode == 'four_shanks':
-
             # Set x-axis limits
             ax.set_ylabel('depth (microns)')
-
+            ax.set_xlabel('microns')
             fig.suptitle('Map of the four shanks and delta power')
-        
-        #save
-        fig.savefig(self.output_path / 'complete_delta_map.png')
 
+        # Save the figure
+        fig.savefig(self.output_path / 'complete_delta_map.png')
