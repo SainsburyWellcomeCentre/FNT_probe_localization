@@ -1,6 +1,11 @@
-numpy
-pandas
-matplotlib
+spikeinterface[full, widgets]
 jupyter
-ipykernel
-brainreg
+pathlib
+pyyaml
+numpy
+multitaper
+pandas
+tqdm
+scipy
+matplotlib
+
