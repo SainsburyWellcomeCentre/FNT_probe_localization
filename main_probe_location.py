@@ -2,9 +2,9 @@ import probe_location
 from pathlib import Path
 import os
 
-mouselist = ['FNT099']
+mouselist = ['FNT104', 'FNT103', 'FNT099', 'FNT098']
 
-calculate_power = False
+calculate_power = True
 re_calculate_power = False
 build_whole_probe = True
 
@@ -37,17 +37,21 @@ if calculate_power:
                 print('\n \n #################################')
                 print(f'Processing {mouse} session {directory}')
                 print('#################################\n \n ')
-                print(dir_path)
-                print(result)
 
                 probe_mapper = probe_location.probe_mapper(mouse, directory, mode=mode)
 
+                #Diagnostics plots
+
                 probe_mapper.fourier()
+                probe_mapper.plot_10s_traces()
 
-                print('If done in slow mode, takes about 20')
+                #Calculate delta power
+
+                print('This is very slow')
                 probe_mapper.probe_spectrum()
-
                 probe_mapper.calculate_delta_power()
+
+                #Output plots
 
                 probe_mapper.build_probemap()
 
