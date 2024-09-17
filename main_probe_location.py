@@ -2,7 +2,7 @@ import probe_location
 from pathlib import Path
 import os
 
-mouselist = ['FNT104', 'FNT103', 'FNT099', 'FNT098', 'FNT101']
+mouselist = ['FNT104', 'FNT103', 'FNT099', 'FNT098']
 
 calculate_power = True
 re_calculate_power = False
