@@ -2,7 +2,7 @@ import probe_location
 from pathlib import Path
 import os
 
-mouselist = ['FNT104', 'FNT103', 'FNT099', 'FNT098']
+mouselist = ['SP156', 'SP156_all_shanks']
 
 calculate_power = True
 re_calculate_power = False
@@ -10,8 +10,8 @@ build_whole_probe = True
 
 mode = 'four_shanks'
 
-INPUT = Path('/ceph/sjones/projects/FlexiVexi/raw_data/')
-OUTPUT = Path('/ceph/sjones/projects/FlexiVexi/data_analysis/probe_location/')
+INPUT = Path('/ceph/sjones/projects/sequences/NPX_DATA/')
+OUTPUT = Path('/ceph/sjones/projects/sequences/probe_location/')
 
 if calculate_power:
 
@@ -26,7 +26,9 @@ if calculate_power:
 
             result = probe_location.get_record_node_path(dir_path)
 
-            if result is not None:
+            segment = 0
+
+            if len(result)>0:
 
                 output_probemap = Path(OUTPUT) / mouse / f'{directory}_{mode}' / 'probemap.csv'
 
@@ -38,7 +40,7 @@ if calculate_power:
                 print(f'Processing {mouse} session {directory}')
                 print('#################################\n \n ')
 
-                probe_mapper = probe_location.probe_mapper(mouse, directory, mode=mode)
+                probe_mapper = probe_location.probe_mapper(mouse, directory, mode=mode, segment = segment)
 
                 #Diagnostics plots
 
@@ -54,6 +56,8 @@ if calculate_power:
                 #Output plots
 
                 probe_mapper.build_probemap()
+
+                segment += 1
 
 if build_whole_probe:
 
