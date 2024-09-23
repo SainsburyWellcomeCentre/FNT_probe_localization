@@ -24,40 +24,46 @@ if calculate_power:
 
             dir_path = os.path.join(mouse_path, directory)
 
-            result = probe_location.get_record_node_path(dir_path)
-
-            segment = 0
+            result = probe_location.get_record_node_path_list(dir_path)
+            print(f'RESULT: {result}')
 
             if len(result)>0:
 
-                output_probemap = Path(OUTPUT) / mouse / f'{directory}_{mode}' / 'probemap.csv'
+                for segment, i in enumerate(result):
 
-                if output_probemap.is_file() and not re_calculate_power:
-                    print(f'{directory} is already processed. SKIPPING!')
-                    continue
 
-                print('\n \n #################################')
-                print(f'Processing {mouse} session {directory}')
-                print('#################################\n \n ')
+                    print(f'SEGMENT:{segment}')
+                    
+                    if segment == 0:
+                        output_probemap = Path(OUTPUT) / mouse / f'{directory}_{mode}' / 'probemap.csv'
+                    else:
+                        output_probemap = Path(OUTPUT) / mouse / f'{directory}_{mode}_segment{segment}' / 'probemap.csv'
 
-                probe_mapper = probe_location.probe_mapper(mouse, directory, mode=mode, segment = segment)
 
-                #Diagnostics plots
+                    if output_probemap.is_file() and not re_calculate_power:
+                        print(f'{directory} is already processed. SKIPPING!')
+                        continue
 
-                probe_mapper.fourier()
-                probe_mapper.plot_10s_traces()
+                    print('\n \n #################################')
+                    print(f'Processing {mouse} session {directory}')
+                    print('#################################\n \n ')
 
-                #Calculate delta power
+                    probe_mapper = probe_location.probe_mapper(mouse, directory, mode=mode, segment = segment)
 
-                print('This is very slow')
-                probe_mapper.probe_spectrum()
-                probe_mapper.calculate_delta_power()
+                    #Diagnostics plots
 
-                #Output plots
+                    probe_mapper.fourier()
+                    probe_mapper.plot_10s_traces()
 
-                probe_mapper.build_probemap()
+                    #Calculate delta power
 
-                segment += 1
+                    probe_mapper.probe_spectrum()
+                    probe_mapper.calculate_delta_power()
+
+                    #Output plots
+
+                    probe_mapper.build_probemap()
+
 
 if build_whole_probe:
 

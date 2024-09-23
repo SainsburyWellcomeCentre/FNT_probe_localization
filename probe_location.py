@@ -13,11 +13,10 @@ import pandas as pd
 import os
 from scipy import signal
 
+INPUT = Path('/ceph/sjones/projects/sequences/NPX_DATA/')
+OUTPUT = Path('/ceph/sjones/projects/sequences/probe_location/')
 
-INPUT = Path('/ceph/sjones/projects/FlexiVexi/raw_data/')
-OUTPUT = Path('/ceph/sjones/projects/FlexiVexi/data_analysis/probe_location/')
-
-def get_record_node_path(root_folder):
+def get_record_node_path_list(root_folder):
     xml_paths = []
     # Traverse the directory tree
     for dirpath, dirnames, filenames in os.walk(root_folder):
@@ -27,6 +26,14 @@ def get_record_node_path(root_folder):
         for xml_file in xml_files:
             xml_paths.append(dirpath)
     return xml_paths
+
+def get_record_node_path(root_folder):
+    # Traverse the directory tree
+    for dirpath, dirnames, filenames in os.walk(root_folder):
+        # Check if 'settings.xml' is in the current directory
+        if 'settings.xml' in filenames:
+            return dirpath
+    return None
 
 def fscale(ns, si=1, one_sided=False):
     """
@@ -69,17 +76,16 @@ class probe_mapper():
         self.node_path = get_record_node_path(root_path)
 
         mousepath = OUTPUT  / mouse
-        mousepath.mkdir(exist_ok=True)
 
         if self.segment == 0:
             self.output_path =  mousepath / f'{session}_{mode}'
         else:
             self.output_path =  mousepath / f'{session}_{mode}_segment{self.segment}'
 
-        self.output_path.mkdir(exist_ok=True)
+        self.output_path.mkdir(parents=True, exist_ok=True)
         #reading
 
-        recording = se.read_openephys(self.node_path, stream_id  = '1', segment = self.segment)
+        recording = se.read_openephys(self.node_path, stream_id  = '1', block_index = self.segment)
 
         if recording.get_num_segments() > 1:
             recording = recording.select_segments(0)
