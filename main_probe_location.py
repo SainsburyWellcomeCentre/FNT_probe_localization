@@ -2,7 +2,7 @@ import probe_location
 from pathlib import Path
 import os
 
-mouselist = ['FNT104', 'FNT103', 'FNT099', 'FNT098']
+mouselist = ['SP156', 'SP156_all_shanks']
 
 calculate_power = True
 re_calculate_power = False
@@ -10,8 +10,8 @@ build_whole_probe = True
 
 mode = 'four_shanks'
 
-INPUT = Path('/ceph/sjones/projects/FlexiVexi/raw_data/')
-OUTPUT = Path('/ceph/sjones/projects/FlexiVexi/data_analysis/probe_location/')
+INPUT = Path('/ceph/sjones/projects/sequences/NPX_DATA/')
+OUTPUT = Path('/ceph/sjones/projects/sequences/probe_location/')
 
 if calculate_power:
 
@@ -24,36 +24,46 @@ if calculate_power:
 
             dir_path = os.path.join(mouse_path, directory)
 
-            result = probe_location.get_record_node_path(dir_path)
+            result = probe_location.get_record_node_path_list(dir_path)
+            print(f'RESULT: {result}')
 
-            if result is not None:
+            if len(result)>0:
 
-                output_probemap = Path(OUTPUT) / mouse / f'{directory}_{mode}' / 'probemap.csv'
+                for segment, i in enumerate(result):
 
-                if output_probemap.is_file() and not re_calculate_power:
-                    print(f'{directory} is already processed. SKIPPING!')
-                    continue
 
-                print('\n \n #################################')
-                print(f'Processing {mouse} session {directory}')
-                print('#################################\n \n ')
+                    print(f'SEGMENT:{segment}')
+                    
+                    if segment == 0:
+                        output_probemap = Path(OUTPUT) / mouse / f'{directory}_{mode}' / 'probemap.csv'
+                    else:
+                        output_probemap = Path(OUTPUT) / mouse / f'{directory}_{mode}_segment{segment}' / 'probemap.csv'
 
-                probe_mapper = probe_location.probe_mapper(mouse, directory, mode=mode)
 
-                #Diagnostics plots
+                    if output_probemap.is_file() and not re_calculate_power:
+                        print(f'{directory} is already processed. SKIPPING!')
+                        continue
 
-                probe_mapper.fourier()
-                probe_mapper.plot_10s_traces()
+                    print('\n \n #################################')
+                    print(f'Processing {mouse} session {directory}')
+                    print('#################################\n \n ')
 
-                #Calculate delta power
+                    probe_mapper = probe_location.probe_mapper(mouse, directory, mode=mode, segment = segment)
 
-                print('This is very slow')
-                probe_mapper.probe_spectrum()
-                probe_mapper.calculate_delta_power()
+                    #Diagnostics plots
 
-                #Output plots
+                    probe_mapper.fourier()
+                    probe_mapper.plot_10s_traces()
 
-                probe_mapper.build_probemap()
+                    #Calculate delta power
+
+                    probe_mapper.probe_spectrum()
+                    probe_mapper.calculate_delta_power()
+
+                    #Output plots
+
+                    probe_mapper.build_probemap()
+
 
 if build_whole_probe:
 

@@ -13,9 +13,19 @@ import pandas as pd
 import os
 from scipy import signal
 
+INPUT = Path('/ceph/sjones/projects/sequences/NPX_DATA/')
+OUTPUT = Path('/ceph/sjones/projects/sequences/probe_location/')
 
-INPUT = Path('/ceph/sjones/projects/FlexiVexi/raw_data/')
-OUTPUT = Path('/ceph/sjones/projects/FlexiVexi/data_analysis/probe_location/')
+def get_record_node_path_list(root_folder):
+    xml_paths = []
+    # Traverse the directory tree
+    for dirpath, dirnames, filenames in os.walk(root_folder):
+        # Check for any .xml files in the current directory
+        xml_files = [f for f in filenames if f.endswith('.xml')]
+        # If there are .xml files, add the directory path to the list for each file
+        for xml_file in xml_files:
+            xml_paths.append(dirpath)
+    return xml_paths
 
 def get_record_node_path(root_folder):
     # Traverse the directory tree
@@ -52,26 +62,30 @@ class probe_mapper():
      or four shanks. 
     '''
 
-    def __init__(self, mouse, session, mode = 'four_shanks', fourier_mode = 'welch'):
+    def __init__(self, mouse, session, mode = 'four_shanks', fourier_mode = 'welch', segment = 0):
 
         self.mouse = mouse
         self.session  = session
         self.mode = mode
         self.low_band = 1
         self.fourier_mode = fourier_mode
+        self.segment = segment
 
         root_path = INPUT  / self.mouse / self.session
 
         self.node_path = get_record_node_path(root_path)
 
         mousepath = OUTPUT  / mouse
-        mousepath.mkdir(exist_ok=True)
 
-        self.output_path =  mousepath / f'{session}_{mode}'
-        self.output_path.mkdir(exist_ok=True)
+        if self.segment == 0:
+            self.output_path =  mousepath / f'{session}_{mode}'
+        else:
+            self.output_path =  mousepath / f'{session}_{mode}_segment{self.segment}'
+
+        self.output_path.mkdir(parents=True, exist_ok=True)
         #reading
 
-        recording = se.read_openephys(self.node_path, stream_id  = '1')
+        recording = se.read_openephys(self.node_path, stream_id  = '1', block_index = self.segment)
 
         if recording.get_num_segments() > 1:
             recording = recording.select_segments(0)

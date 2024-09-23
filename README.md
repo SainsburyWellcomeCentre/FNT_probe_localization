@@ -37,7 +37,9 @@ Because it uses `spikeinterface`, it should run fine with the environment used f
 
 It is usually run as a batch job, because it takes a long time, from `probe_location.batch`. Please, edit the email address and switch it to your own. You  should also change the path to the `main_probe_location.py` script 
 
-Parameters shold be edited in `main_probe_location.py`. It accepts a list of mouse names. You can calculate all the delta powers, annd choose between re-calculating them all from scratch (if you made any changes) or skipping the ones that are already made. You can also only use the pipeline to produce whole-probe maps. 
+Parameters shold be edited in `main_probe_location.py`. It accepts a list of mouse names. You can calculate all the delta powers, and choose between re-calculating them all from scratch (if you made any changes) or skipping the ones that are already made. You can also only use the pipeline to produce whole-probe maps. 
+
+If a recording has several segments to it (that is, within the recording folder there are several directories and several `.xml` files), the pipeline will iterate over all of them and indicate where each recording comes from in the final map. 
 
 You can choose to use the welch method to calculate the fourier transform. It will take a 40'' chunk of recording between seconds 5 and 45, break it into four windows, compute the spectrogram and average it. 
 
