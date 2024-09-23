@@ -2,7 +2,7 @@ import probe_location
 from pathlib import Path
 import os
 
-mouselist = ['SP156', 'SP156_all_shanks']
+mouselist = ['FNT101']
 
 calculate_power = True
 re_calculate_power = False
@@ -10,8 +10,8 @@ build_whole_probe = True
 
 mode = 'four_shanks'
 
-INPUT = Path('/ceph/sjones/projects/sequences/NPX_DATA/')
-OUTPUT = Path('/ceph/sjones/projects/sequences/probe_location/')
+INPUT = Path('/ceph/sjones/projects/FlexiVexi/raw_data/')
+OUTPUT = Path('/ceph/sjones/projects/FlexiVexi/data_analysis/probe_location/')
 
 if calculate_power:
 

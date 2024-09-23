@@ -13,8 +13,8 @@ import pandas as pd
 import os
 from scipy import signal
 
-INPUT = Path('/ceph/sjones/projects/sequences/NPX_DATA/')
-OUTPUT = Path('/ceph/sjones/projects/sequences/probe_location/')
+INPUT = Path('/ceph/sjones/projects/FlexiVexi/raw_data/')
+OUTPUT = Path('/ceph/sjones/projects/FlexiVexi/data_analysis/probe_location/')
 
 def get_record_node_path_list(root_folder):
     xml_paths = []
@@ -85,7 +85,12 @@ class probe_mapper():
         self.output_path.mkdir(parents=True, exist_ok=True)
         #reading
 
-        recording = se.read_openephys(self.node_path, stream_id  = '1', block_index = self.segment)
+        try:
+            recording = se.read_openephys(self.node_path, stream_id='1', block_index=self.segment)
+        except Exception as e:
+            print(f"Failed to read with stream_id='1': {e}")
+            print("Attempting to read with stream_id='0' instead.")
+            recording = se.read_openephys(self.node_path, stream_id='0', block_index=self.segment)
 
         if recording.get_num_segments() > 1:
             recording = recording.select_segments(0)
