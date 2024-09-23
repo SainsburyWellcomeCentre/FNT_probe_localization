@@ -406,7 +406,9 @@ class  whole_probe():
 
         fig, ax = plt.subplots()
 
-        fig.set_figheight(30)
+        y_range = max(self.probemap['y'])-min(self.probemap['y'])
+
+        fig.set_figheight(5+(0.0078*y_range)) #scale figure size with y range, this seems like a sensible scaling
         fig.set_figwidth(10)
 
         # Create a scatter plot
