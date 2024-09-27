@@ -1,4 +1,4 @@
-import probe_location
+import probe_power_spectrum_pipeline.probe_location as probe_location
 from pathlib import Path
 import os
 
