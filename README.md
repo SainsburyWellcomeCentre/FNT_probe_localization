@@ -50,3 +50,33 @@ This is not what the IBL does: they seem to break the signal into nonoverlapping
 [This is how they calculate the energy spectrum](https://github.com/int-brain-lab/ibllib/blob/master/ibllib/ephys/ephysqc.py)  
 
 [This is how they plot it](https://github.com/int-brain-lab/ibllib/blob/master/brainbox/ephys_plots.py#L11)
+
+## Registering probe spectrum to brainreg data. 
+
+This pipeline solves two issues. When you trace a track in brainreg, you get a nice `.csv` file which contains a thousand points, sampled from the spline, and their anatomical locations. You also  get a `.npy` file which contains the coordinates of each of these points in the Allen Brain Atlas space. How to translate  from this  to where a channel is within the probe is not trivial: some people have used the tip and the fact that they know the geometry  of the probe to infer  where different probes are. However:
+
+- If the probes are deep, the tip can be lost or hard to find. Also, the dye can diffuse if the animals have been implanted for a lonng time, which makes locating the tip very noisy. 
+
+- When you use brainreg to register you brainsaw data to the Allen Brain Atlas, you are warping your brain to fit the Allen Brain Atlas. Because your brain might be smaller or bigger than the reference brain, a micron in the reference brain does not neccessarily mean the same as a micron in your brainsaw volume. 
+
+The idea behind this pipelinne, then, is to find a set of common points in your probe space (through delta power analysis) and in Allen Brain space (through brainreg tracks). 
+
+In the `main_physiology_aligmnent` script, you'll find an intuitive way to run the code in `phyhsiology_alignment`. 
+
+- Write down the positions of a shared feature in probe space and brainreg space. This could be the transition from cortex to striatum, or the transitions in-out of the dentate gyrus. If you have more than one transition point, write them as a list. The more transition points, the better. 
+
+- The code will attempt to find a mapping between your channels on each session and positions along your brainreg track. With just one feature, it can only align the two tracks, but not correct for the warping. With more than one feature, it will fit a line to the two or more points and use it create a linear map from probe space to the brainreg track. That is:
+  
+```
+brainreg_position = intercept + slope*probe_position
+
+OR
+
+brainreg_position = difference + probe_position
+```
+
+The end result looks like the `complete_probemap.csv` file generated in the `probe_location` pipeline. However, it contains the Allen Brain coordinates for each channel on each sessions. To make things easier, there is an `areas_per_session.csv` file, which shows which areas were spanned in each recording session. 
+
+## Visualization
+
+I've included a re-worked example from  the brainreg people to be able to visualize the probes and select structures in the Allen Brain space. You can include as many animals as you want, because they've all been registered to a reference brain. 
