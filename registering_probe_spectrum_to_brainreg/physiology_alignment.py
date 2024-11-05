@@ -21,8 +21,8 @@ from pathlib import Path
 import json
 import logging
 
-BRAINREG_INPUT = '/Volumes/sjones/projects/FlexiVexi/brainreg'
-NPX_INPUT = '/Volumes/sjones/projects/FlexiVexi/data_analysis/probe_location'
+BRAINREG_INPUT = '/ceph/sjones/projects/FlexiVexi/brainreg'
+NPX_INPUT = '/ceph/sjones/projects/FlexiVexi/data_analysis/probe_location'
 
 
 

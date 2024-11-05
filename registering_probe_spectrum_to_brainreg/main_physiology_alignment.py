@@ -24,20 +24,20 @@ n_shanks = 4
 
 # Define the features for each shank
 # SHANK 0
-features_brainreg_0 = [655]
-features_npx_0 = [710]
+features_brainreg_0 = [1560]
+features_npx_0 = [2150]
 
 # SHANK 1
-features_brainreg_1 = [697]
-features_npx_1 = [710]
+features_brainreg_1 = [1745]
+features_npx_1 = [2150]
 
 # SHANK 2
-features_brainreg_2 = [4121.77]
-features_npx_2 = [714]
+features_brainreg_2 = [947]
+features_npx_2 = [2150]
 
 # SHANK 3
-features_brainreg_3 = [3748.61]
-features_npx_3 = [714]
+features_brainreg_3 = [1662]
+features_npx_3 = [2150]
 
 
 # Organize the features into a dictionary with shank indices
@@ -64,7 +64,7 @@ feature_dict = {
 if use_past_params:
     
     # Specify the path to your JSON file
-    json_file_path = '/Volumes/sjones/projects/FlexiVexi/data_analysis/probe_location/FNT098/Allen_Brain/params.json'
+    json_file_path = 'path'
 
     # Open the JSON file and load it as a dictionary
     with open(json_file_path, 'r') as json_file:
